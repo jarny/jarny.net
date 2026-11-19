@@ -114,13 +114,23 @@
     left: 1rem; top: 1rem; z-index: 20; padding: .5rem .8rem;
     background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: .8rem;
   }
-  .index-btn {
-    position: fixed; top: 1.25rem; right: 1.25rem; z-index: 5;
+  .corner { position: fixed; top: 1.25rem; right: 1.25rem; z-index: 5; display: flex; gap: .5rem; }
+  .index-btn, .fs-btn {
     font-family: var(--mono); font-size: .72rem; letter-spacing: .22em; text-transform: uppercase;
     color: var(--dim); background: rgba(5,5,7,.4); border: 1px solid var(--faint);
     padding: .6rem .85rem; cursor: pointer; transition: color .3s, border-color .3s;
   }
-  .index-btn:hover, .index-btn:focus-visible { color: var(--ink); border-color: var(--ink); outline: none; }
+  .index-btn:hover, .index-btn:focus-visible, .fs-btn:hover, .fs-btn:focus-visible { color: var(--ink); border-color: var(--ink); outline: none; }
+  .fs-btn { display: flex; align-items: center; padding: 0 .7rem; }
+  .fs-btn[hidden] { display: none; }
+  .fs-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+  .fs-btn .exit { display: none; }
+  :fullscreen .fs-btn .enter { display: none; }
+  :fullscreen .fs-btn .exit { display: block; }
+  /* in full screen the cursor fades away when the mouse is still, like a projector room */
+  :fullscreen body.idle, :fullscreen body.idle * { cursor: none !important; }
+  :fullscreen body.idle .corner { opacity: 0; transition: opacity 1s; }
+  .corner { transition: opacity .4s; }
 
   .gauge {
     position: fixed; left: 1.4rem; top: 50%; transform: translateY(-50%);
@@ -336,7 +346,7 @@
     .gauge { left: .8rem; height: 36vh; }
     .gauge .lbl, .readout { display: none; }
     .inner { margin-left: 2.6rem; margin-right: 1.2rem; }
-    .index-btn { top: .9rem; right: .9rem; }
+    .corner { top: .9rem; right: .9rem; }
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -352,7 +362,13 @@
 <div class="grain" aria-hidden="true"></div>
 <div class="vignette" aria-hidden="true"></div>
 
-<button class="index-btn" type="button" aria-haspopup="dialog" aria-controls="index">Index</button>
+<div class="corner">
+  <button class="fs-btn" type="button" aria-label="Full screen" title="Full screen (F)" hidden>
+    <svg class="enter" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9"/></svg>
+    <svg class="exit" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 1v4H1M13 5H9V1M9 13V9h4M1 9h4v4"/></svg>
+  </button>
+  <button class="index-btn" type="button" aria-haspopup="dialog" aria-controls="index">Index</button>
+</div>
 
 <nav class="gauge" aria-label="Depth">
   <ol>
@@ -602,6 +618,48 @@
     if (e.target === dlg || e.target.closest('a')) dlg.close();
   });
   document.querySelector('.skip').addEventListener('click', e => { e.preventDefault(); dlg.showModal(); });
+
+  /* ---------- full screen: the button in the corner, or press F ---------- */
+  const root = document.documentElement;
+  const fsBtn = document.querySelector('.fs-btn');
+  const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+  function toggleFullscreen() {
+    if (fsElement()) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const req = root.requestFullscreen || root.webkitRequestFullscreen;
+      const p = req && req.call(root);
+      if (p && p.catch) p.catch(() => {});
+    }
+  }
+  if (fsSupported) {
+    fsBtn.hidden = false;
+    fsBtn.addEventListener('click', toggleFullscreen);
+    const syncFs = () => {
+      const on = !!fsElement();
+      fsBtn.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+      fsBtn.title = on ? 'Exit full screen (F or Esc)' : 'Full screen (F)';
+      if (!on) document.body.classList.remove('idle');
+    };
+    document.addEventListener('fullscreenchange', syncFs);
+    document.addEventListener('webkitfullscreenchange', syncFs);
+    addEventListener('keydown', e => {
+      if (e.key !== 'f' && e.key !== 'F') return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+      toggleFullscreen();
+    });
+    // hide the cursor and corner buttons after a few still seconds in full screen
+    let idleTimer;
+    const wake = () => {
+      document.body.classList.remove('idle');
+      clearTimeout(idleTimer);
+      if (fsElement()) idleTimer = setTimeout(() => document.body.classList.add('idle'), 2500);
+    };
+    ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, wake, { passive: true }));
+    document.addEventListener('fullscreenchange', wake);
+  }
 
   /* ---------- contact: the lamp ---------- */
   // assembled here rather than written in the HTML, to keep the address away from simple scrapers
