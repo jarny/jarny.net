@@ -1,0 +1,991 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jarny Choi — Research</title>
+<meta name="description" content="Research by Jarny Choi: eQTL analysis, computational method development, cell atlases and stem cells.">
+<meta name="theme-color" content="#050507">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23050507'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23b3262d'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050507;
+    --ink: #ece4d2;
+    --body: #d3ccbc;
+    --dim: #8f877a;
+    --faint: #4a463f;
+    --red: #b3262d;
+    --serif: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--serif);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: inherit; }
+
+  /* ---------- the film ---------- */
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  .grain {
+    position: fixed; inset: -50%; width: 200%; height: 200%;
+    z-index: 1; pointer-events: none; opacity: .06;
+    background-image: var(--grain);
+    animation: grain 1s steps(6) infinite;
+  }
+  @keyframes grain {
+    0% { transform: translate(0, 0); }
+    20% { transform: translate(-3%, 2%); }
+    40% { transform: translate(2%, -4%); }
+    60% { transform: translate(-4%, -1%); }
+    80% { transform: translate(3%, 3%); }
+    100% { transform: translate(0, 0); }
+  }
+  .vignette {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.78) 100%);
+  }
+
+  /* ---------- chrome ---------- */
+  .skip { position: absolute; left: -999px; top: 0; }
+  .skip:focus {
+    left: 1rem; top: 1rem; z-index: 20; padding: .5rem .8rem;
+    background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: .8rem;
+  }
+  .index-btn {
+    position: fixed; top: 1.25rem; right: 1.25rem; z-index: 5;
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--dim); background: rgba(5,5,7,.4); border: 1px solid var(--faint);
+    padding: .6rem .85rem; cursor: pointer; transition: color .3s, border-color .3s;
+  }
+  .index-btn:hover, .index-btn:focus-visible { color: var(--ink); border-color: var(--ink); outline: none; }
+
+  .gauge {
+    position: fixed; left: 1.4rem; top: 50%; transform: translateY(-50%);
+    height: 44vh; z-index: 4;
+    font-family: var(--mono); font-size: .66rem; letter-spacing: .08em;
+  }
+  .gauge ol {
+    list-style: none; margin: 0; padding: 0; height: 100%;
+    display: flex; flex-direction: column; justify-content: space-between; position: relative;
+  }
+  .gauge ol::before {
+    content: ""; position: absolute; left: 3px; top: 0; bottom: 0; width: 1px; background: var(--faint);
+  }
+  .gauge li { position: relative; height: 0; display: flex; align-items: center; }
+  .gauge a {
+    display: flex; align-items: center; gap: .7rem; padding: .4rem 0;
+    color: var(--faint); text-decoration: none; transition: color .4s;
+  }
+  .gauge a::before { content: ""; width: 7px; height: 1px; background: currentColor; }
+  .gauge a:hover, .gauge a:focus-visible, .gauge li.on a { color: var(--ink); outline: none; }
+  .marker {
+    position: absolute; left: 0; top: 0; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--red); box-shadow: 0 0 10px var(--red); transform: translateY(-50%);
+    pointer-events: none;
+  }
+  .readout {
+    position: absolute; left: 0; top: calc(100% + 1.8rem); margin: 0;
+    white-space: nowrap; color: var(--dim);
+  }
+  .readout span { color: var(--ink); }
+
+  /* ---------- layers ---------- */
+  main { position: relative; z-index: 2; }
+  .layer { min-height: 140vh; display: flex; align-items: center; position: relative; }
+  .surface { min-height: 100vh; }
+  .bottom { min-height: 110vh; }
+  .inner {
+    max-width: 31rem;
+    margin-left: clamp(6rem, 16vw, 16rem);
+    margin-right: 1.5rem;
+    padding: 2rem 0;
+    text-shadow: 0 0 28px #000, 0 0 8px #000, 0 0 2px #000;
+  }
+  .js .inner { opacity: 0; transform: translateY(14px); transition: opacity 1.4s ease, transform 1.4s ease; }
+  .js .inner.seen { opacity: 1; transform: none; }
+
+  .tag {
+    margin: 0 0 1.4rem; font-family: var(--mono); font-size: .7rem;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--dim);
+  }
+  .tag .status { color: #d9535a; }
+
+  h1 { margin: .2rem 0 1.4rem; font-weight: 400; font-size: clamp(3.2rem, 9vw, 6.8rem); line-height: .95; letter-spacing: -.01em; }
+  .surface h1 { animation: flickin 2.6s .3s both; }
+  @keyframes flickin {
+    0% { opacity: 0; } 8% { opacity: .55; } 10% { opacity: .08; } 17% { opacity: .8; }
+    19% { opacity: .25; } 34% { opacity: 1; } 100% { opacity: 1; }
+  }
+  .sub { margin: 0; max-width: 28rem; font-size: clamp(1.2rem, 2vw, 1.45rem); line-height: 1.45; font-style: italic; color: var(--body); }
+
+  h2 { margin: 0 0 1.4rem; font-weight: 400; }
+  h2 .plain {
+    display: block; margin-bottom: .9rem;
+    font-family: var(--mono); font-size: .78rem; letter-spacing: .22em; text-transform: uppercase; color: var(--ink);
+  }
+  h2 .poetic { display: block; font-style: italic; font-size: clamp(2.2rem, 5vw, 3.7rem); line-height: 1.04; }
+  .body { margin: 0 0 1.8rem; max-width: 32rem; font-size: clamp(1.15rem, 1.8vw, 1.36rem); line-height: 1.5; color: var(--body); }
+
+  .more {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase;
+    text-decoration: none; padding-bottom: .25rem; border-bottom: 1px solid var(--red);
+    transition: color .3s, border-color .3s;
+  }
+  .more:hover, .more:focus-visible { color: #fff; border-color: #fff; outline: none; }
+
+  /* ---------- the hidden level (only hidden when JS can reveal it) ---------- */
+  .js .hidden-layer:not(.revealed) { display: none; }
+  #below { min-height: 160vh; }
+  .deeper {
+    display: inline-block; margin-top: 4.5rem;
+    font-family: var(--mono); font-size: .64rem; letter-spacing: .2em;
+    color: #2c2a26; text-decoration: none; text-shadow: none; transition: color 1.6s ease;
+  }
+  .deeper:hover, .deeper:focus-visible { color: var(--dim); outline: none; }
+
+  /* ---------- contact: a dark room with a lamp ---------- */
+  #contact {
+    width: 100vw; height: 100vh; max-width: none; max-height: none;
+    margin: 0; padding: 1.5rem; border: 0; background: #050404; overflow: hidden;
+  }
+  #contact[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #contact::backdrop { background: #000; }
+  .room-glow {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s ease;
+    background: radial-gradient(ellipse 62% 58% at 50% 42%, rgba(200,44,42,.24), rgba(150,24,30,.08) 48%, transparent 78%);
+  }
+  .lamp { position: relative; padding: 0; border: 0; background: none; cursor: pointer; }
+  .lamp svg { display: block; height: min(44vh, 340px); width: auto; overflow: visible; }
+  .lamp .metal { fill: #2a2622; transition: fill 1s; }
+  .lamp .shade { fill: #15120f; stroke: #4a443c; stroke-width: 1; transition: stroke .4s; }
+  .lamp .chain { stroke: #5a534a; fill: #5a534a; stroke-width: 1; }
+  .lamp .shade-lit, .lamp .beam, .lamp .bulb { opacity: 0; transition: opacity .6s ease; }
+  .lamp .bulb { fill: #ffd9bf; }
+  .lamp:hover .shade, .lamp:focus-visible .shade { stroke: #9a8f7e; }
+  .lamp:focus-visible { outline: 1px dashed var(--faint); outline-offset: 12px; }
+  #contact.on .shade-lit, #contact.on .beam, #contact.on .bulb, #contact.on .room-glow { opacity: 1; }
+  #contact.on .metal { fill: #6b3029; }
+  /* switch-on flicker, then a slow loop: flicker-flicker, on… a long steady stretch… repeat */
+  #contact.on .shade-lit, #contact.on .beam, #contact.on .bulb, #contact.on .room-glow {
+    animation: lampflick 2.8s linear both, lamploop 11s linear 7s infinite;
+  }
+  /* struggling to turn on: weak sputters, dark gaps, a few false starts, then it catches */
+  @keyframes lampflick {
+    0% { opacity: 0; } 4% { opacity: .55; } 7% { opacity: 0; }
+    15% { opacity: 0; } 18% { opacity: .4; } 21% { opacity: .05; }
+    29% { opacity: .85; } 32% { opacity: .1; } 37% { opacity: .1; }
+    44% { opacity: .75; } 47% { opacity: .25; }
+    55% { opacity: 1; } 58% { opacity: .55; } 64% { opacity: 1; }
+    100% { opacity: 1; }
+  }
+  @keyframes lamploop {
+    0% { opacity: 1; }
+    2.5% { opacity: .12; } 5% { opacity: .95; }
+    7% { opacity: .15; } 9.5% { opacity: 1; }
+    11% { opacity: .6; } 12.5% { opacity: 1; }
+    100% { opacity: 1; }
+  }
+  .caption { display: grid; margin-top: 1.6rem; text-align: center; position: relative; }
+  .caption > * { grid-area: 1 / 1; }
+  /* the address fades in once the lamp has caught */
+  .lit {
+    position: relative;
+    opacity: 0; visibility: hidden; transform: translateY(8px);
+    transition: opacity .8s ease, transform .8s ease, visibility 0s linear .8s;
+  }
+  #contact.on .lit { opacity: 1; visibility: visible; transform: none; transition: opacity 1.2s ease 1.7s, transform 1.2s ease 1.7s; }
+  /* the address is lit by the lamp, so it dips with every flicker (same keyframes and timing as the light) */
+  #contact.on .lit > * { animation: lampflick 2.8s linear both, lamploop 11s linear 7s infinite; }
+  .lit .tag { margin-bottom: .8rem; }
+  .address { margin: 0 0 1.2rem; font-size: clamp(1.3rem, 2.6vw, 1.7rem); }
+  .address a { text-decoration: none; border-bottom: 1px solid var(--red); padding-bottom: .1rem; }
+  .address a:hover, .address a:focus-visible { color: #fff; border-color: #fff; outline: none; }
+  #contact .copy, #contact .close {
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .2em; text-transform: uppercase;
+    background: none; color: var(--dim); border: 1px solid var(--faint); padding: .55rem .9rem; cursor: pointer;
+  }
+  #contact .copy:hover, #contact .copy:focus-visible, #contact .close:hover, #contact .close:focus-visible {
+    color: var(--ink); border-color: var(--ink); outline: none;
+  }
+  #contact .close { position: absolute; top: 1.25rem; right: 1.25rem; margin: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    #contact.on .shade-lit, #contact.on .beam, #contact.on .bulb, #contact.on .room-glow, #contact.on .lit > * { animation: none; }
+  }
+
+  /* ---------- selected papers: one repeated title-card layout ---------- */
+  .reel { list-style: none; margin: 2.4rem 0 1.8rem; padding: 0; border-top: 1px solid rgba(236,228,210,.14); }
+  .paper { padding: 1.15rem 0 1.25rem; border-bottom: 1px solid rgba(236,228,210,.14); }
+  .paper .meta {
+    margin: 0 0 .5rem; font-family: var(--mono); font-size: .64rem;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--dim);
+  }
+  .paper .meta .yr { color: var(--ink); }
+  .paper h3 { margin: 0 0 .45rem; font-weight: 500; font-size: clamp(1.15rem, 1.6vw, 1.32rem); line-height: 1.25; }
+  .paper h3 a {
+    text-decoration: none;
+    background: linear-gradient(var(--red), var(--red)) no-repeat 0 100% / 0 1px;
+    transition: background-size .5s ease;
+  }
+  .paper h3 a:hover, .paper h3 a:focus-visible { background-size: 100% 1px; outline: none; }
+  .paper .gist { margin: 0; font-size: 1.06rem; line-height: 1.45; color: #b3ab9c; }
+
+  .descend {
+    position: absolute; left: 50%; bottom: 2.4rem; transform: translateX(-50%);
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .3em; text-transform: uppercase;
+    color: var(--dim); text-decoration: none; text-align: center; text-shadow: 0 0 10px #000;
+  }
+  .descend span { display: block; margin-top: .5rem; animation: sink 2.8s ease-in-out infinite; }
+  @keyframes sink { 0%, 100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(8px); opacity: 1; } }
+  .descend:hover, .descend:focus-visible { color: var(--ink); outline: none; }
+
+  .plainlist { list-style: none; margin: 0 0 2.4rem; padding: 0; display: flex; flex-wrap: wrap; gap: .6rem 2rem; }
+  .plainlist a {
+    font-family: var(--mono); font-size: .8rem; letter-spacing: .14em; text-transform: uppercase;
+    text-decoration: none; color: var(--ink); border-bottom: 1px solid var(--faint); padding-bottom: .2rem;
+  }
+  .plainlist a:hover, .plainlist a:focus-visible { border-color: var(--ink); outline: none; }
+
+  /* ---------- the index (no film) ---------- */
+  dialog {
+    width: min(34rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem);
+    padding: 2rem 2rem 1.6rem; border: 1px solid var(--faint);
+    background: #0b0b0e; color: var(--ink); font-family: var(--serif);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.72); }
+  dialog h2 { font-size: 2rem; font-style: italic; margin: 0 0 .3rem; }
+  dialog .note { margin: 0 0 1.6rem; color: var(--dim); font-style: italic; font-size: 1.1rem; }
+  dialog h3 {
+    margin: 1.4rem 0 .6rem; font-family: var(--mono); font-weight: 400; font-size: .68rem;
+    letter-spacing: .2em; text-transform: uppercase; color: var(--dim);
+  }
+  dialog ul { list-style: none; margin: 0; padding: 0; }
+  dialog li { padding: .45rem 0; border-bottom: 1px solid #1c1b1f; font-size: 1.2rem; display: flex; justify-content: space-between; gap: 1rem; }
+  dialog li a { text-decoration: none; }
+  dialog li a:hover, dialog li a:focus-visible { color: #fff; text-decoration: underline; text-decoration-color: var(--red); outline: none; }
+  dialog li small { font-family: var(--mono); font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); align-self: center; white-space: nowrap; }
+  dialog .close {
+    margin-top: 1.6rem; font-family: var(--mono); font-size: .7rem; letter-spacing: .2em; text-transform: uppercase;
+    background: none; color: var(--dim); border: 1px solid var(--faint); padding: .55rem .9rem; cursor: pointer;
+  }
+  dialog .close:hover, dialog .close:focus-visible { color: var(--ink); border-color: var(--ink); outline: none; }
+
+  @media (max-width: 700px) {
+    .gauge { left: .8rem; height: 36vh; }
+    .gauge .lbl, .readout { display: none; }
+    .inner { margin-left: 2.6rem; margin-right: 1.2rem; }
+    .index-btn { top: .9rem; right: .9rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .grain, .surface h1, .descend span { animation: none; }
+    .js .inner { transition: none; transform: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#index-list">Skip to a plain index</a>
+
+<canvas id="scene" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<button class="index-btn" type="button" aria-haspopup="dialog" aria-controls="index">Index</button>
+
+<nav class="gauge" aria-label="Depth">
+  <ol>
+    <li><a href="#surface" aria-label="Surface"><span class="lbl">surface</span></a></li>
+    <li><a href="#atlas" aria-label="Atlas building, 1 millimetre"><span class="lbl">1 mm</span></a></li>
+    <li><a href="#stem-cells" aria-label="Stem cells, 10 micrometres"><span class="lbl">10 µm</span></a></li>
+    <li><a href="#methods" aria-label="Method development, 100 nanometres"><span class="lbl">100 nm</span></a></li>
+    <li><a href="#eqtl" aria-label="eQTL analysis, 1 nanometre"><span class="lbl">1 nm</span></a></li>
+    <li class="hidden-layer"><a href="#below" aria-label="Particle physics, 10 to the minus 18 metres"><span class="lbl">10⁻¹⁸ m</span></a></li>
+  </ol>
+  <span class="marker" aria-hidden="true"></span>
+  <p class="readout" aria-hidden="true">scale ≈ <span id="scale">1 m</span></p>
+</nav>
+
+<main id="content">
+  <section id="surface" class="layer surface">
+    <div class="inner">
+      <p class="tag">jarny.net</p>
+      <h1>Jarny Choi</h1>
+      <p class="sub">Research from beneath the surface: from tissues and cells down to a single letter of DNA.</p>
+    </div>
+    <a class="descend" href="#atlas">Descend<span aria-hidden="true">↓</span></a>
+  </section>
+
+  <section id="atlas" class="layer" aria-labelledby="atlas-h">
+    <div class="inner">
+      <p class="tag">1 mm · tissue · <span class="status">former work</span></p>
+      <h2 id="atlas-h"><span class="plain">Atlas building</span><span class="poetic">Where everything was, once.</span></h2>
+      <p class="body">Reference atlases bring many datasets together into one shared map of cell types and states, so that a new sample can be placed against everything that came before it.</p>
+      <ol class="reel" aria-label="Selected papers: atlas building">
+        <li class="paper">
+          <p class="meta"><span class="yr">2024</span> · Stem Cell Reports</p>
+          <h3><a href="https://doi.org/10.1016/j.stemcr.2024.04.012" target="_blank" rel="noopener">Stemformatics data portal enables transcriptional benchmarking of lab-derived myeloid cells</a></h3>
+          <p class="gist">How to match lab-derived myeloid cells against integrated reference atlases of human macrophages and dendritic cells.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">2019</span> · Nucleic Acids Research</p>
+          <h3><a href="https://doi.org/10.1093/nar/gky1020" target="_blank" rel="noopener">Haemopedia RNA-seq: a database of gene expression during haematopoiesis in mice and humans</a></h3>
+          <p class="gist">RNA-seq profiles of 57 mouse and 12 human blood cell types, explorable through the Haemosphere portal.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">2020</span> · PLOS Computational Biology</p>
+          <h3><a href="https://doi.org/10.1371/journal.pcbi.1008219" target="_blank" rel="noopener">A simple, scalable approach to building a cross-platform transcriptome atlas</a></h3>
+          <p class="gist">850 samples from 38 platforms combined into one atlas of human blood cells, by keeping only genes with low platform bias.</p>
+        </li>
+      </ol>
+      <a class="more" href="https://orcid.org/0000-0002-7788-8867" target="_blank" rel="noopener">All papers →</a>
+    </div>
+  </section>
+
+  <section id="stem-cells" class="layer" aria-labelledby="stem-h">
+    <div class="inner">
+      <p class="tag">10 µm · cell · <span class="status">former work</span></p>
+      <h2 id="stem-h"><span class="plain">Stem cells</span><span class="poetic">Before it decides what to become.</span></h2>
+      <p class="body">Earlier work on stem cells: how a cell keeps many possible futures open, and what its molecular state says about which one it will choose.</p>
+      <ol class="reel" aria-label="Selected papers: stem cells">
+        <li class="paper">
+          <p class="meta"><span class="yr">2023</span> · Nature Communications</p>
+          <h3><a href="https://doi.org/10.1038/s41467-022-35744-x" target="_blank" rel="noopener">In vivo clonal tracking reveals evidence of haemangioblast and haematomesoblast contribution to yolk sac haematopoiesis</a></h3>
+          <p class="gist">Single-cell sequencing and cellular barcoding trace yolk sac blood, endothelium and mesenchyme back to three distinct precursors, one of them newly described.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">2019</span> · Stem Cell Reports</p>
+          <h3><a href="https://doi.org/10.1016/j.stemcr.2019.07.008" target="_blank" rel="noopener">Transcriptional profiling of stem cells: moving from descriptive to predictive paradigms</a></h3>
+          <p class="gist">A review of how expression data can move from describing stem cells to predicting their identity, and the data traps along the way.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">2018</span> · Nature Communications</p>
+          <h3><a href="https://doi.org/10.1038/s41467-018-07584-1" target="_blank" rel="noopener">Age-specific biological and molecular profiling distinguishes paediatric from adult acute myeloid leukaemias</a></h3>
+          <p class="gist">The age of the cell of origin shapes acute myeloid leukaemia, with young AML marked by upregulated immune pathways.</p>
+        </li>
+      </ol>
+      <a class="more" href="https://orcid.org/0000-0002-7788-8867" target="_blank" rel="noopener">All papers →</a>
+    </div>
+  </section>
+
+  <section id="methods" class="layer" aria-labelledby="methods-h">
+    <div class="inner">
+      <p class="tag">100 nm · chromatin · <span class="status">most papers since 2023</span></p>
+      <h2 id="methods-h"><span class="plain">Method development</span><span class="poetic">Instruments for seeing in the dark.</span></h2>
+      <p class="body">Most of my papers in the past three years are about new methods: computational tools that make structure visible in data where it would otherwise stay hidden.</p>
+      <ol class="reel" aria-label="Selected papers: method development">
+        <li class="paper">
+          <p class="meta"><span class="yr">2026</span> · Genome Research</p>
+          <h3><a href="https://doi.org/10.1101/gr.281171.125" target="_blank" rel="noopener">Scalable cell-specific coexpression networks for granular regulatory pattern discovery with NeighbourNet</a></h3>
+          <p class="gist">A co-expression network for every individual cell rather than every cluster, to catch regulation that shifts gradually between cells.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">2026</span> · Cell Reports Methods</p>
+          <h3><a href="https://doi.org/10.1016/j.crmeth.2026.101483" target="_blank" rel="noopener">Φ-Space ST: a platform-agnostic method to identify cell states in spatial transcriptomics studies</a></h3>
+          <p class="gist">Continuous cell states in spatial transcriptomics data from any platform, using several single-cell references at once.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">2024</span> · NAR Genomics and Bioinformatics</p>
+          <h3><a href="https://doi.org/10.1093/nargab/lqae130" target="_blank" rel="noopener">StableMate: a statistical method to select stable predictors in omics data</a></h3>
+          <p class="gist">Separates predictors that hold across datasets from those that only hold in one batch or environment.</p>
+        </li>
+      </ol>
+      <a class="more" href="https://orcid.org/0000-0002-7788-8867" target="_blank" rel="noopener">All papers →</a>
+    </div>
+  </section>
+
+  <section id="eqtl" class="layer" aria-labelledby="eqtl-h">
+    <div class="inner">
+      <p class="tag">1 nm · a single variant · <span class="status">current work</span></p>
+      <h2 id="eqtl-h"><span class="plain">eQTL analysis</span><span class="poetic">One letter, out of place.</span></h2>
+      <p class="body">Most genetic variants linked to disease lie outside genes, in DNA that doesn't code for protein. eQTL analysis asks which of those variants change how strongly a nearby gene is expressed, and where.</p>
+      <ol class="reel" aria-label="Selected papers: eQTL analysis">
+        <li class="paper">
+          <p class="meta"><span class="yr">2025</span> · Preprint</p>
+          <h3><a href="https://doi.org/10.1101/2025.07.17.25331702" target="_blank" rel="noopener">Flexible and efficient count-distribution and mixed-model methods for eQTL mapping with quasar</a></h3>
+          <p class="gist">Fast, flexible software for eQTL mapping, from linear models to count-based mixed models.</p>
+        </li>
+      </ol>
+      <a class="more" href="https://orcid.org/0000-0002-7788-8867" target="_blank" rel="noopener">All papers →</a>
+    </div>
+  </section>
+
+  <section id="bottom" class="layer bottom" aria-labelledby="bottom-h">
+    <div class="inner">
+      <p class="tag">end of the descent</p>
+      <h2 id="bottom-h"><span class="poetic">You have reached the bottom.</span></h2>
+      <ul class="plainlist">
+        <li><a href="https://scholar.google.com.au/citations?user=LkzoZpMAAAAJ&amp;hl=en" target="_blank" rel="noopener">Google Scholar</a></li>
+        <li><a href="https://orcid.org/0000-0002-7788-8867" target="_blank" rel="noopener">ORCID</a></li>
+        <li><a href="#contact" data-open-contact>Contact</a></li>
+      </ul>
+      <a class="more" href="#surface">Return to the surface ↑</a>
+      <p><a class="deeper" href="#below">there is a level below this one</a></p>
+    </div>
+  </section>
+
+  <section id="below" class="layer hidden-layer" aria-labelledby="below-h">
+    <div class="inner">
+      <p class="tag">10⁻¹⁸ m · the electroweak scale · <span class="status">1992–1995</span></p>
+      <h2 id="below-h"><span class="plain">Particle physics</span><span class="poetic">Underneath everything, a field.</span></h2>
+      <p class="body">Before biology, I worked in theoretical particle physics: extensions of the Standard Model's Higgs sector, and what they do to the electroweak phase transition in the early universe.</p>
+      <ol class="reel" aria-label="Papers: particle physics">
+        <li class="paper">
+          <p class="meta"><span class="yr">1995</span> · Physics Letters B</p>
+          <h3><a href="https://doi.org/10.1016/0370-2693(94)01654-U" target="_blank" rel="noopener">Sphalerons in the standard model with a real Higgs singlet</a></h3>
+          <p class="gist">Sphalerons, the saddle-point field configurations behind baryon-number violation, in the Standard Model with an extra Higgs singlet.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">1993</span> · Physics Letters B</p>
+          <h3><a href="https://doi.org/10.1016/0370-2693(93)91013-D" target="_blank" rel="noopener">Real Higgs singlet and the electroweak phase transition in the standard model</a></h3>
+          <p class="gist">How adding a real Higgs singlet changes the electroweak phase transition.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">1993</span> · Physical Review D</p>
+          <h3><a href="https://doi.org/10.1103/PhysRevD.48.1258" target="_blank" rel="noopener">Effective potential at finite temperature in the left-right-symmetric model</a></h3>
+          <p class="gist">The left-right-symmetric model can have two first-order phase transitions, but the electroweak one is still too weak.</p>
+        </li>
+        <li class="paper">
+          <p class="meta"><span class="yr">1992</span> · Physical Review D</p>
+          <h3><a href="https://doi.org/10.1103/PhysRevD.45.4261" target="_blank" rel="noopener">Exotic fermions in the left-right-symmetric model</a></h3>
+          <p class="gist">A systematic search for non-standard fermion multiplets allowed by anomaly cancellation in left-right-symmetric models.</p>
+        </li>
+      </ol>
+      <a class="more" href="#surface">Return to the surface ↑</a>
+    </div>
+  </section>
+</main>
+
+<dialog id="index" aria-labelledby="index-h">
+  <h2 id="index-h">Index</h2>
+  <p class="note">The same site, without the film.</p>
+  <div id="index-list">
+    <h3>Research</h3>
+    <ul>
+      <li><a href="#eqtl">eQTL analysis</a><small>current</small></li>
+      <li><a href="#methods">Method development</a><small>2023–now</small></li>
+      <li><a href="#atlas">Atlas building</a><small>former</small></li>
+      <li><a href="#stem-cells">Stem cells</a><small>former</small></li>
+    </ul>
+    <h3>Elsewhere</h3>
+    <ul>
+      <li><a href="https://scholar.google.com.au/citations?user=LkzoZpMAAAAJ&amp;hl=en" target="_blank" rel="noopener">Google Scholar</a></li>
+      <li><a href="https://orcid.org/0000-0002-7788-8867" target="_blank" rel="noopener">ORCID</a></li>
+      <li><a class="email" href="#contact">jchoi [at] svi.edu.au</a><small>email</small></li>
+    </ul>
+  </div>
+  <button class="close" type="button">Close</button>
+</dialog>
+
+<dialog id="contact" aria-label="Contact">
+  <div class="room-glow" aria-hidden="true"></div>
+  <button class="lamp" type="button" aria-pressed="false" aria-label="Turn on the lamp">
+    <svg viewBox="0 0 240 340" aria-hidden="true">
+      <defs>
+        <radialGradient id="lamp-cone" cx="50%" cy="0%" r="100%">
+          <stop offset="0" stop-color="#e5533d" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#c3262d" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="lamp-shade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7f181c"/>
+          <stop offset=".6" stop-color="#c8392f"/>
+          <stop offset="1" stop-color="#f07a5c"/>
+        </linearGradient>
+      </defs>
+      <path class="beam" d="M58 150 L182 150 L250 340 L-10 340 Z" fill="url(#lamp-cone)"/>
+      <rect class="metal" x="118" y="150" width="4" height="160"/>
+      <ellipse class="metal" cx="120" cy="314" rx="44" ry="8"/>
+      <circle class="metal" cx="120" cy="67" r="4"/>
+      <path class="shade" d="M84 74 L156 74 L182 150 L58 150 Z"/>
+      <path class="shade-lit" d="M84 74 L156 74 L182 150 L58 150 Z" fill="url(#lamp-shade)"/>
+      <ellipse class="bulb" cx="120" cy="150" rx="61" ry="4"/>
+      <line class="chain" x1="164" y1="150" x2="164" y2="188"/>
+      <circle class="chain" cx="164" cy="191" r="3"/>
+    </svg>
+  </button>
+  <div class="caption">
+    <div class="lit" aria-live="polite">
+      <p class="tag">contact</p>
+      <p class="address"><a class="email" href="#contact">jchoi [at] svi.edu.au</a></p>
+      <button class="copy" type="button">Copy address</button>
+    </div>
+  </div>
+  <button class="close" type="button">Close</button>
+</dialog>
+
+<script>
+(() => {
+  document.documentElement.classList.add('js');
+
+  const mq = matchMedia('(prefers-reduced-motion: reduce)');
+  let RM = mq.matches;
+  mq.addEventListener && mq.addEventListener('change', e => { RM = e.matches; });
+
+  /* ---------- film grain texture ---------- */
+  (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 160;
+    const g = c.getContext('2d'); const img = g.createImageData(160, 160);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = Math.random() * 255 | 0;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    document.documentElement.style.setProperty('--grain', `url(${c.toDataURL()})`);
+  })();
+
+  /* ---------- index dialog ---------- */
+  const dlg = document.getElementById('index');
+  document.querySelector('.index-btn').addEventListener('click', () => dlg.showModal());
+  dlg.querySelector('.close').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => {
+    if (e.target === dlg || e.target.closest('a')) dlg.close();
+  });
+  document.querySelector('.skip').addEventListener('click', e => { e.preventDefault(); dlg.showModal(); });
+
+  /* ---------- contact: the lamp ---------- */
+  // assembled here rather than written in the HTML, to keep the address away from simple scrapers
+  const EMAIL = ['jchoi', 'svi.edu.au'].join('@');
+  document.querySelectorAll('a.email').forEach(a => { a.href = 'mailto:' + EMAIL; a.textContent = EMAIL; });
+  const contact = document.getElementById('contact');
+  const lamp = contact.querySelector('.lamp');
+  // the flicker loop lives in CSS and runs for as long as the room has .on
+  function setLamp(on) {
+    contact.classList.toggle('on', on);
+    lamp.setAttribute('aria-pressed', String(on));
+    lamp.setAttribute('aria-label', on ? 'Turn off the lamp' : 'Turn on the lamp');
+  }
+  lamp.addEventListener('click', () => setLamp(!contact.classList.contains('on')));
+  // the room opens dark; after a beat the lamp switches itself on
+  let lampTimer;
+  document.querySelectorAll('[data-open-contact]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    contact.showModal();
+    clearTimeout(lampTimer);
+    lampTimer = setTimeout(() => setLamp(true), RM ? 0 : 900);
+  }));
+  contact.querySelector('.close').addEventListener('click', () => contact.close());
+  contact.addEventListener('close', () => { clearTimeout(lampTimer); setLamp(false); });
+  // Copy: first the synchronous execCommand route, which runs inside the click itself and never waits on a
+  // permission prompt; then the Clipboard API, with a time limit because some browsers leave it pending.
+  // The textarea goes inside the dialog, because a modal dialog makes the rest of the page inert.
+  function copyViaTextarea() {
+    const ta = document.createElement('textarea');
+    ta.value = EMAIL; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:absolute;left:-9999px;top:0;opacity:0';
+    contact.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0, EMAIL.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove();
+    return ok;
+  }
+  async function copyEmail() {
+    if (copyViaTextarea()) return true;
+    if (!navigator.clipboard || !window.isSecureContext) return false;
+    const timeout = new Promise(res => setTimeout(() => res(false), 1200));
+    const api = navigator.clipboard.writeText(EMAIL).then(() => true, () => false);
+    return Promise.race([api, timeout]);
+  }
+  const copyBtn = contact.querySelector('.copy');
+  let copyTimer;
+  copyBtn.addEventListener('click', async () => {
+    const ok = await copyEmail();
+    copyBtn.focus();
+    if (ok) {
+      copyBtn.textContent = 'Copied';
+    } else {
+      // last resort: select the address so Ctrl+C / Cmd+C works
+      const r = document.createRange(); r.selectNodeContents(contact.querySelector('.address a'));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      copyBtn.textContent = 'Selected: press Ctrl+C';
+    }
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => { copyBtn.textContent = 'Copy address'; }, 2400);
+  });
+
+  /* ---------- text reveal ---------- */
+  const io = new IntersectionObserver(entries => {
+    for (const en of entries) en.target.classList.toggle('seen', en.isIntersecting);
+  }, { threshold: 0.3 });
+  document.querySelectorAll('.inner').forEach(el => io.observe(el));
+
+  /* ---------- scene data (seeded, so resizing doesn't reshuffle) ---------- */
+  function rng(seed) {
+    return () => {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const R = rng(1977);
+  const TAU = Math.PI * 2;
+  const Z = 7.5; // zoom factor between neighbouring layers
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const ease = x => x * x * (3 - 2 * x);
+
+  // surface
+  const stars = Array.from({ length: 170 }, () => ({ x: R(), y: R() * 0.72, r: R() * 1.3 + 0.3, p: R() * TAU }));
+  const blades = Array.from({ length: 320 }, () => ({ x: R() * 1.04 - 0.02, h: 0.035 + R() * 0.09, w: 0.0018 + R() * 0.0035, p: R() * TAU, lean: (R() - 0.5) * 0.03 }));
+
+  // tissue: jittered grid of cells, one cell exactly at the centre
+  const cells = [];
+  const STEP = 0.16;
+  for (let gx = -1.36; gx <= 1.36; gx += STEP) {
+    for (let gy = -1.36; gy <= 1.36; gy += STEP) {
+      const x = gx + (R() - 0.5) * STEP * 0.55, y = gy + (R() - 0.5) * STEP * 0.55;
+      if (Math.hypot(x, y) > 1.38 || Math.hypot(x, y) < STEP * 0.9) continue;
+      cells.push({ x, y, s: STEP * (0.4 + R() * 0.1), p: R() * TAU, centre: false });
+    }
+  }
+  cells.push({ x: 0, y: 0, s: 0.6 / Z, p: 1.3, centre: true });
+
+  // cell: organelles orbiting between nucleus and membrane
+  const organelles = Array.from({ length: 42 }, () => ({ a: R() * TAU, r: 0.27 + R() * 0.25, len: 0.018 + R() * 0.03, rot: R() * TAU, sp: (R() - 0.5) * 0.07 }));
+
+  // chromatin: random-walk fibres inside the nucleus; chain 0 runs through the centre
+  const chains = [];
+  const LOCUS = 70;
+  for (let c = 0; c < 8; c++) {
+    let x = (R() - 0.5) * 1.6, y = (R() - 0.5) * 1.6, ang = R() * TAU;
+    const pts = [];
+    for (let k = 0; k < 150; k++) {
+      ang += (R() - 0.5) * 1.3;
+      x += Math.cos(ang) * 0.03; y += Math.sin(ang) * 0.03;
+      const r = Math.hypot(x, y);
+      if (r > 1.2) { x *= 1.2 / r; y *= 1.2 / r; ang += Math.PI * 0.6; }
+      pts.push({ x, y, p: R() * TAU });
+    }
+    chains.push(pts);
+  }
+  { const o = chains[0][LOCUS]; const dx = o.x, dy = o.y; for (const p of chains[0]) { p.x -= dx; p.y -= dy; } }
+
+  // variant: a field of bases, one of which is the variant
+  const letters = [];
+  const FS = 0.03, CW = FS * 0.62, RH = FS * 2.3, FIELD = 0.85;
+  for (let row = -14; row <= 14; row++) {
+    for (let col = -48; col <= 48; col++) {
+      const x = col * CW, y = row * RH;
+      if (Math.hypot(x, y) > FIELD || (row === 0 && col === 0)) continue;
+      letters.push({ x, y, c: 'ACGT'[R() * 4 | 0], p: R() * TAU, row0: row === 0 });
+    }
+  }
+
+  // the level below: particle tracks spiralling out of collision vertices
+  const events = [];
+  for (let e = 0; e < 4; e++) {
+    const centre = e === 0;
+    const vx = centre ? 0 : (R() - 0.5) * 1.4, vy = centre ? 0 : (R() - 0.5) * 1.1;
+    const tracks = [];
+    const nTracks = centre ? 12 : 5 + (R() * 5 | 0);
+    for (let t = 0; t < nTracks; t++) {
+      let x = vx, y = vy, ang = R() * TAU;
+      const stiff = R() < 0.3; // high-energy tracks barely curve
+      let curv = (R() < 0.5 ? -1 : 1) * (stiff ? 0.1 + R() * 0.3 : 0.5 + R() * 2.4);
+      const tighten = stiff ? 1.002 : 1.01 + R() * 0.008;
+      const pts = [];
+      const n = 90 + (R() * 170 | 0);
+      for (let s = 0; s < n; s++) {
+        ang += curv * 0.012; curv *= tighten;
+        x += Math.cos(ang) * 0.012; y += Math.sin(ang) * 0.012;
+        if (Math.hypot(x, y) > 1.35) break;
+        pts.push(x, y);
+      }
+      tracks.push(pts);
+    }
+    events.push({ centre, tracks, p: centre ? 0.1 : R(), sp: 0.06 + R() * 0.05 });
+  }
+
+  /* ---------- canvas ---------- */
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, U = 1, DPR = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight; U = Math.hypot(W, H) / 2;
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    measure();
+  }
+
+  const sections = ['surface', 'atlas', 'stem-cells', 'methods', 'eqtl', 'below'].map(id => document.getElementById(id));
+  let centres = [];
+  // a hidden section (display: none) has no client rects, so it drops out of the descent
+  function measure() {
+    centres = sections.filter(s => s.getClientRects().length).map(s => s.offsetTop + s.offsetHeight / 2);
+  }
+  function targetDepth() {
+    const vc = scrollY + innerHeight / 2;
+    if (vc <= centres[0]) return 0;
+    for (let i = 0; i < centres.length - 1; i++) {
+      if (vc < centres[i + 1]) return i + (vc - centres[i]) / (centres[i + 1] - centres[i]);
+    }
+    return centres.length - 1;
+  }
+
+  function blob(cx, cy, r, p, amp, n, time) {
+    ctx.beginPath();
+    for (let j = 0; j <= n; j++) {
+      const a = j / n * TAU;
+      const rr = r * (1 + amp * Math.sin(a * 3 + p + time * 0.6) + amp * 0.6 * Math.sin(a * 5 - p * 1.3 + time * 0.4));
+      const X = cx + Math.cos(a) * rr, Y = cy + Math.sin(a) * rr;
+      j ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+    }
+    ctx.closePath();
+  }
+
+  // on wide screens the zoom centre sits to the right of the text column
+  const focusX = () => W >= 1000 ? W * 0.72 : W / 2;
+
+  // where a layer sits on screen, and how big one unit is
+  function place(i, d) {
+    const s = RM ? 1 : Math.pow(Z, d);
+    let cy = H / 2;
+    if (i === 1 && d < 0 && !RM) cy = H * 0.9 + (H / 2 - H * 0.9) * ease(clamp(d + 1, 0, 1));
+    return [focusX(), cy, U * s];
+  }
+  function useUnits(cx, cy, k) { ctx.setTransform(DPR * k, 0, 0, DPR * k, DPR * cx, DPR * cy); }
+
+  function drawSurface(d, a, time) {
+    const s = RM ? 1 : Math.pow(Z, Math.max(0, d));
+    const fx = focusX(), fy = H * 0.9;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.globalAlpha = a;
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#030409'); g.addColorStop(0.62, '#0a1124'); g.addColorStop(1, '#1b2747');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    ctx.setTransform(DPR * s, 0, 0, DPR * s, DPR * fx * (1 - s), DPR * fy * (1 - s));
+    for (const st of stars) {
+      const tw = 0.5 + 0.5 * Math.sin(time * 1.2 + st.p);
+      ctx.globalAlpha = a * (0.2 + 0.55 * tw);
+      ctx.fillStyle = '#ece4d2';
+      ctx.fillRect(st.x * W, st.y * H, st.r, st.r);
+    }
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#010201';
+    ctx.fillRect(-W, H - 2, W * 3, H * 2);
+    for (const b of blades) {
+      const bx = b.x * W, by = H + 2, hh = b.h * H;
+      const sway = Math.sin(time * 0.7 + b.p) * 0.008 * H + b.lean * H;
+      const w = Math.max(1.4, b.w * W);
+      ctx.beginPath();
+      ctx.moveTo(bx - w, by);
+      ctx.quadraticCurveTo(bx - w * 0.3 + sway * 0.4, by - hh * 0.6, bx + sway, by - hh);
+      ctx.quadraticCurveTo(bx + w * 0.3 + sway * 0.4, by - hh * 0.6, bx + w, by);
+      ctx.fill();
+    }
+  }
+
+  function drawTissue(d, a, time) {
+    const [cx, cy, k] = place(1, d), px = 1 / k;
+    useUnits(cx, cy, k);
+    for (const c of cells) {
+      const sx = cx + c.x * k, sy = cy + c.y * k, sr = c.s * k * 1.3;
+      if (sx + sr < 0 || sx - sr > W || sy + sr < 0 || sy - sr > H) continue;
+      const e = clamp((1.38 - Math.hypot(c.x, c.y)) / 0.5, 0, 1);
+      blob(c.x, c.y, c.s, c.p, 0.07, 16, time);
+      ctx.globalAlpha = a * e * (c.centre ? 0.55 : 0.25); ctx.fillStyle = '#5a1418'; ctx.fill();
+      ctx.lineWidth = (c.centre ? 1.6 : 1.1) * px;
+      ctx.globalAlpha = a * e * (c.centre ? 1 : 0.6); ctx.strokeStyle = c.centre ? '#e7aaa0' : '#a8443f'; ctx.stroke();
+      const off = c.centre ? 0 : c.s * 0.15;
+      ctx.beginPath();
+      ctx.arc(c.x + off * Math.cos(c.p), c.y + off * Math.sin(c.p), c.s * 0.33, 0, TAU);
+      ctx.globalAlpha = a * e * 0.7; ctx.fillStyle = '#1e0709'; ctx.fill();
+      ctx.lineWidth = 0.8 * px; ctx.globalAlpha = a * e * 0.45; ctx.stroke();
+    }
+  }
+
+  function drawCell(d, a, time) {
+    const [cx, cy, k] = place(2, d), px = 1 / k;
+    useUnits(cx, cy, k);
+    blob(0, 0, 0.6, 1.3, 0.035, 80, time);
+    const g = ctx.createRadialGradient(0, 0, 0.05, 0, 0, 0.64);
+    g.addColorStop(0, 'rgba(60,82,145,0.38)'); g.addColorStop(1, 'rgba(22,32,66,0.18)');
+    ctx.globalAlpha = a; ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = 1.5 * px; ctx.strokeStyle = 'rgba(175,195,235,0.75)'; ctx.stroke();
+    blob(0, 0, 0.64, 2.1, 0.03, 80, time);
+    ctx.lineWidth = 0.8 * px; ctx.strokeStyle = 'rgba(175,195,235,0.25)'; ctx.stroke();
+
+    ctx.lineWidth = 1 * px; ctx.strokeStyle = 'rgba(205,110,110,0.6)';
+    for (const o of organelles) {
+      const ang = o.a + time * o.sp;
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(ang) * o.r, Math.sin(ang) * o.r, o.len, o.len * 0.38, o.rot + time * o.sp * 2, 0, TAU);
+      ctx.stroke();
+    }
+
+    blob(0, 0, 0.2, 0.4, 0.04, 56, time);
+    ctx.fillStyle = 'rgba(10,12,24,0.94)'; ctx.fill();
+    ctx.lineWidth = 1.3 * px; ctx.strokeStyle = 'rgba(228,205,195,0.65)'; ctx.stroke();
+  }
+
+  function drawChromatin(d, a, time) {
+    const [cx, cy, k] = place(3, d), px = 1 / k;
+    useUnits(cx, cy, k);
+    ctx.globalAlpha = a * 0.3; ctx.lineWidth = 1 * px; ctx.strokeStyle = '#e4cdc3';
+    ctx.beginPath(); ctx.arc(0, 0, 1.32, 0, TAU); ctx.stroke();
+
+    const jit = (p, j, isLocus) => isLocus ? 0 : Math.sin(time * 0.6 + p) * 0.006;
+    for (let ci = 0; ci < chains.length; ci++) {
+      const ch = chains[ci];
+      ctx.beginPath();
+      for (let j = 0; j < ch.length; j++) {
+        const p = ch[j], L = ci === 0 && j === LOCUS;
+        const x = p.x + jit(p.p, j, L), y = p.y + jit(p.p + 1.7, j, L);
+        j ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.globalAlpha = a * 0.32; ctx.lineWidth = 1.2 * px; ctx.strokeStyle = '#ece4d2'; ctx.stroke();
+      ctx.globalAlpha = a * 0.55; ctx.fillStyle = '#ece4d2';
+      for (let j = 0; j < ch.length; j += 2) {
+        const p = ch[j];
+        ctx.beginPath(); ctx.arc(p.x + jit(p.p, j, false), p.y + jit(p.p + 1.7, j, false), 0.009, 0, TAU); ctx.fill();
+      }
+    }
+    const pulse = 0.75 + 0.25 * Math.sin(time * 2);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 0.09);
+    g.addColorStop(0, 'rgba(220,50,58,0.7)'); g.addColorStop(1, 'rgba(220,50,58,0)');
+    ctx.globalAlpha = a * pulse; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, 0.09, 0, TAU); ctx.fill();
+    ctx.globalAlpha = a; ctx.fillStyle = '#e0383f';
+    ctx.beginPath(); ctx.arc(0, 0, 0.016, 0, TAU); ctx.fill();
+  }
+
+  function drawVariant(d, a, time) {
+    const s = RM ? 1 : Math.pow(Z, d), k = U * s, cx = focusX(), cy = H / 2;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const fs = FS * k;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `400 ${fs}px "IBM Plex Mono", ui-monospace, monospace`;
+    ctx.fillStyle = '#ece4d2';
+    for (const L of letters) {
+      const x = cx + L.x * k, y = cy + L.y * k;
+      if (x < -fs || x > W + fs || y < -fs || y > H + fs) continue;
+      const e = clamp((FIELD - Math.hypot(L.x, L.y)) / 0.4, 0, 1);
+      const tw = 0.6 + 0.4 * Math.sin(time * 0.7 + L.p);
+      ctx.globalAlpha = a * e * (L.row0 ? 0.6 : 0.17) * tw;
+      ctx.fillText(L.c, x, y);
+    }
+    // the variant: one position, two alleles
+    const allele = RM ? 'G' : (Math.floor(time / 2.6) % 2 ? 'A' : 'G');
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, fs * 2.4);
+    g.addColorStop(0, 'rgba(220,50,58,0.55)'); g.addColorStop(1, 'rgba(220,50,58,0)');
+    ctx.globalAlpha = a * (0.8 + 0.2 * Math.sin(time * 2)); ctx.fillStyle = g;
+    ctx.fillRect(cx - fs * 2.4, cy - fs * 2.4, fs * 4.8, fs * 4.8);
+    ctx.globalAlpha = a; ctx.fillStyle = '#ff4d55';
+    ctx.font = `500 ${fs * 1.15}px "IBM Plex Mono", ui-monospace, monospace`;
+    ctx.fillText(allele, cx, cy);
+  }
+
+  // the level below: bubble-chamber events, one of them at the centre where the variant was
+  function drawSubatomic(d, a, time) {
+    const [cx, cy, k] = place(5, d), px = 1 / k;
+    useUnits(cx, cy, k);
+    ctx.globalAlpha = a * 0.3; ctx.strokeStyle = '#ece4d2'; ctx.lineWidth = 1 * px;
+    ctx.beginPath(); ctx.moveTo(-1.5, 0); ctx.lineTo(0, 0); ctx.stroke();
+
+    const sz = Math.max(0.0042, 1.6 * px);
+    ctx.fillStyle = '#ece4d2';
+    for (const ev of events) {
+      const cyc = RM ? 0.5 : (time * ev.sp + ev.p) % 1;
+      const grow = ease(clamp(cyc / 0.35, 0, 1));
+      const fade = cyc < 0.6 ? 1 : Math.max(0, 1 - (cyc - 0.6) / 0.4);
+      if (fade <= 0) continue;
+      for (const tr of ev.tracks) {
+        const n = tr.length / 2, m = Math.floor(n * grow);
+        ctx.globalAlpha = a * 0.6 * fade;
+        for (let j = 0; j < m; j += 2) ctx.fillRect(tr[2 * j] - sz / 2, tr[2 * j + 1] - sz / 2, sz, sz);
+      }
+      if (ev.centre) {
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 0.05);
+        g.addColorStop(0, 'rgba(220,50,58,0.75)'); g.addColorStop(1, 'rgba(220,50,58,0)');
+        ctx.globalAlpha = a * fade; ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(0, 0, 0.05, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ece4d2';
+      }
+    }
+  }
+
+  const LAYERS = [drawSurface, drawTissue, drawCell, drawChromatin, drawVariant, drawSubatomic];
+
+  /* ---------- depth gauge ---------- */
+  const marker = document.querySelector('.marker');
+  const gaugeItems = [...document.querySelectorAll('.gauge li')];
+  const scaleEl = document.getElementById('scale');
+  const LOGS = [0, -3, -5, -7, -9, -18];
+  const UNITS = [[1, 'm'], [1e-3, 'mm'], [1e-6, 'µm'], [1e-9, 'nm'], [1e-12, 'pm'], [1e-15, 'fm'], [1e-18, 'am']];
+  function fmtScale(f) {
+    const i = Math.min(LOGS.length - 2, Math.floor(f));
+    const m = Math.pow(10, LOGS[i] + (LOGS[i + 1] - LOGS[i]) * (f - i));
+    const [base, u] = UNITS.find(([b]) => m >= b * 0.9999) || UNITS[UNITS.length - 1];
+    return Number((m / base).toPrecision(2)) + ' ' + u;
+  }
+  let lastActive = -1, lastScale = '';
+  function updateGauge(f) {
+    marker.style.top = (f / Math.max(1, centres.length - 1) * 100) + '%';
+    const act = Math.round(f);
+    if (act !== lastActive) { gaugeItems.forEach((li, i) => li.classList.toggle('on', i === act)); lastActive = act; }
+    const sc = fmtScale(f);
+    if (sc !== lastScale) { scaleEl.textContent = sc; lastScale = sc; }
+  }
+
+  /* ---------- loop ---------- */
+  let f = 0, flick = 0, last = performance.now();
+  const t0 = last;
+  function frame(now) {
+    const time = RM ? 0 : (now - t0) / 1000;
+    const dt = Math.min(1, Math.max(0, (now - last) / 1000)); last = now;
+    const target = targetDepth();
+    // time-based easing, so slow or throttled frames still catch up
+    f = RM ? target : f + (target - f) * (1 - Math.exp(-dt * 6));
+    if (Math.abs(target - f) < 0.0005) f = target;
+
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.globalAlpha = 1; ctx.fillStyle = '#050507'; ctx.fillRect(0, 0, W, H);
+
+    let fl = 1;
+    if (!RM) {
+      if (flick > 0) { flick--; fl = 0.8 + Math.random() * 0.12; }
+      else if (Math.random() < 0.0025) flick = 2 + (Math.random() * 5 | 0);
+    }
+    for (let i = 0; i < LAYERS.length; i++) {
+      const d = f - i;
+      if (Math.abs(d) >= 1) continue;
+      const a = ease(1 - Math.abs(d)) * fl;
+      if (a > 0.004) LAYERS[i](d, a, time);
+    }
+    updateGauge(f);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- the level below ---------- */
+  function revealBelow() {
+    document.querySelectorAll('.hidden-layer').forEach(el => el.classList.add('revealed'));
+    measure();
+    if (!RM) flick = 14;
+  }
+  document.querySelector('.deeper').addEventListener('click', e => {
+    e.preventDefault();
+    revealBelow();
+    document.getElementById('below').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
+    history.replaceState(null, '', '#below');
+  });
+  if (location.hash === '#below') revealBelow();
+
+  addEventListener('resize', resize);
+  addEventListener('load', measure);
+  document.fonts && document.fonts.ready.then(measure);
+  new ResizeObserver(measure).observe(document.body);
+  resize();
+  f = targetDepth();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
