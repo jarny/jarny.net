@@ -548,7 +548,7 @@
     <ul>
       <li><a href="https://scholar.google.com.au/citations?user=LkzoZpMAAAAJ&amp;hl=en" target="_blank" rel="noopener">Google Scholar</a></li>
       <li><a href="https://orcid.org/0000-0002-7788-8867" target="_blank" rel="noopener">ORCID</a></li>
-      <li><a class="email" href="#contact">jchoi [at] svi.edu.au</a><small>email</small></li>
+      <li><a class="email" href="#contact">email [at] jarny.net</a><small>email</small></li>
     </ul>
   </div>
   <button class="close" type="button">Close</button>
@@ -583,7 +583,7 @@
   <div class="caption">
     <div class="lit" aria-live="polite">
       <p class="tag">contact</p>
-      <p class="address"><a class="email" href="#contact">jchoi [at] svi.edu.au</a></p>
+      <p class="address"><a class="email" href="#contact">email [at] jarny.net</a></p>
       <button class="copy" type="button">Copy address</button>
     </div>
   </div>
@@ -663,7 +663,7 @@
 
   /* ---------- contact: the lamp ---------- */
   // assembled here rather than written in the HTML, to keep the address away from simple scrapers
-  const EMAIL = ['jchoi', 'svi.edu.au'].join('@');
+  const EMAIL = ['email', 'jarny.net'].join('@');
   document.querySelectorAll('a.email').forEach(a => { a.href = 'mailto:' + EMAIL; a.textContent = EMAIL; });
   const contact = document.getElementById('contact');
   const lamp = contact.querySelector('.lamp');
